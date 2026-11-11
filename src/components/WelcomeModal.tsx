@@ -20,6 +20,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
   const [name, setName] = useState('');
   const [grade, setGrade] = useState<'X' | 'XI' | 'XII'>('XI');
   const [error, setError] = useState('');
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     if (initialProfile) {
@@ -132,20 +133,39 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
 
           <div className="pt-2 flex items-center justify-between gap-3">
             {initialProfile && onResetAllData ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('Yakin ingin mereset seluruh data lokal, riwayat chat, dan skor?')) {
-                    onResetAllData();
-                    onClose();
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-950/40 border border-rose-800/40 transition-colors"
-                title="Hapus semua data lokal"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Reset Data</span>
-              </button>
+              confirmReset ? (
+                <div className="flex items-center gap-1.5 p-1 rounded-lg bg-rose-950/40 border border-rose-800/60">
+                  <span className="text-[11px] text-rose-300 font-semibold px-1">Yakin hapus?</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onResetAllData();
+                      setConfirmReset(false);
+                      onClose();
+                    }}
+                    className="px-2 py-1 text-xs rounded bg-rose-600 hover:bg-rose-500 text-white font-bold transition-all"
+                  >
+                    Ya, Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmReset(false)}
+                    className="px-2 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                  >
+                    Batal
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmReset(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-950/40 border border-rose-800/40 transition-colors"
+                  title="Hapus semua data lokal"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Reset Data</span>
+                </button>
+              )
             ) : <div />}
 
             <button

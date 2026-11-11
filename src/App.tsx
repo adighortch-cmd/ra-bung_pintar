@@ -135,10 +135,16 @@ export default function App() {
   };
 
   const handleClearHistory = () => {
-    if (window.confirm("Hapus seluruh riwayat percakapan dengan RA'BUNG-Pintar?")) {
-      setMessages([]);
+    setMessages([]);
+    try {
       localStorage.removeItem(STORAGE_KEY_CHAT);
+    } catch (e) {
+      console.warn('Could not clear chat storage:', e);
     }
+  };
+
+  const handleDeleteMessage = (id: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
   };
 
   const handleRegenerate = async () => {
@@ -182,6 +188,7 @@ export default function App() {
             messages={messages}
             onSendMessage={handleSendMessage}
             onClearHistory={handleClearHistory}
+            onDeleteMessage={handleDeleteMessage}
             onRegenerate={handleRegenerate}
             isLoading={isLoadingChat}
             activeTopic={activeTopic}

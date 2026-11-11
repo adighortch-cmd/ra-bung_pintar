@@ -32,6 +32,7 @@ interface ChatbotViewProps {
   messages: ChatMessage[];
   onSendMessage: (text: string, imageBase64?: string, useThinking?: boolean) => Promise<void>;
   onClearHistory: () => void;
+  onDeleteMessage?: (id: string) => void;
   onRegenerate: () => Promise<void>;
   isLoading: boolean;
   activeTopic: string;
@@ -43,6 +44,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
   messages,
   onSendMessage,
   onClearHistory,
+  onDeleteMessage,
   onRegenerate,
   isLoading,
   activeTopic,
@@ -54,6 +56,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState<'teori' | 'praktikum' | 'soal'>('teori');
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -183,15 +186,43 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
               <span>Thinking {useThinking ? 'ON' : 'OFF'}</span>
             </button>
 
-            {messages.length > 0 && (
-              <button
-                onClick={onClearHistory}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-800 transition-colors whitespace-nowrap shrink-0"
-                title="Hapus riwayat percakapan"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Hapus Chat</span>
-              </button>
+            {showConfirmClear ? (
+              <div className="flex items-center gap-1.5 p-1 rounded-lg bg-rose-950/60 border border-rose-500/50 shadow-[0_0_12px_rgba(244,63,94,0.25)] animate-in fade-in duration-150">
+                <span className="text-[11px] text-rose-300 font-semibold px-1 whitespace-nowrap">
+                  Hapus {messages.length} chat?
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearHistory();
+                    setShowConfirmClear(false);
+                  }}
+                  className="px-2.5 py-1 text-xs rounded bg-rose-600 hover:bg-rose-500 text-white font-bold transition-all shadow-sm whitespace-nowrap shrink-0"
+                  title="Konfirmasi hapus seluruh riwayat chat"
+                >
+                  Ya, Hapus
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmClear(false)}
+                  className="px-2 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all whitespace-nowrap shrink-0"
+                  title="Batal hapus"
+                >
+                  Batal
+                </button>
+              </div>
+            ) : (
+              messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmClear(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-800 transition-colors whitespace-nowrap shrink-0"
+                  title="Hapus riwayat percakapan"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Hapus Chat</span>
+                </button>
+              )
             )}
           </div>
         </div>
@@ -282,7 +313,19 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
                       </>
                     )}
                   </span>
-                  <span className="text-slate-400 text-[10px]">{msg.timestamp}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 text-[10px]">{msg.timestamp}</span>
+                    {onDeleteMessage && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteMessage(msg.id)}
+                        className="text-slate-500 hover:text-rose-400 p-0.5 rounded transition-colors"
+                        title="Hapus pesan ini"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Attached image if any */}
