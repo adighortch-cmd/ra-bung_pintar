@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { StudentProfile } from '../utils/rules';
+import { generateTroubleshootFallback } from '../utils/curriculumEngine';
 
 interface TroubleshooterAIViewProps {
   student: StudentProfile;
@@ -75,25 +76,38 @@ export const TroubleshooterAIView: React.FC<TroubleshooterAIViewProps> = ({ stud
     setDiagnosisResult(null);
 
     try {
-      const res = await fetch('/api/troubleshoot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          logText: logInput,
-          imageBase64: uploadedImage || undefined,
-          osEnvironment,
-          studentName: student.name,
-        }),
-      });
+      let diagnosis = '';
+      try {
+        const res = await fetch('/api/troubleshoot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            logText: logInput,
+            imageBase64: uploadedImage || undefined,
+            osEnvironment,
+            studentName: student.name,
+          }),
+        });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Gagal memproses diagnosis.');
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.diagnosis) {
+            diagnosis = data.diagnosis;
+          }
+        }
+      } catch (networkErr) {
+        console.warn('Network troubleshoot API unavailable, utilizing local diagnosis:', networkErr);
       }
 
-      setDiagnosisResult(data.diagnosis);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Terjadi kesalahan saat mendiagnosis masalah.');
+      if (!diagnosis) {
+        diagnosis = generateTroubleshootFallback(student.name, osEnvironment, logInput);
+      }
+
+      setDiagnosisResult(diagnosis);
+    } catch {
+      const fallback = generateTroubleshootFallback(student.name, osEnvironment, logInput);
+      setDiagnosisResult(fallback);
     } finally {
       setIsAnalyzing(false);
     }

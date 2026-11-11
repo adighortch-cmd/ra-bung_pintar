@@ -83,25 +83,28 @@ export const QuizArenaView: React.FC<QuizArenaViewProps> = ({ student }) => {
         }),
       });
 
-      const data = await res.json();
-      if (data.questions && data.questions.length > 0) {
-        const formatted = data.questions.map((q: any, idx: number) => ({
-          id: Date.now() + idx,
-          grade: student.grade,
-          topic: selectedTopic,
-          question: q.question,
-          options: q.options,
-          correctIndex: q.correctIndex,
-          explanation: q.explanation,
-        }));
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data && data.questions && data.questions.length > 0) {
+          const formatted = data.questions.map((q: any, idx: number) => ({
+            id: Date.now() + idx,
+            grade: student.grade,
+            topic: selectedTopic,
+            question: q.question,
+            options: q.options,
+            correctIndex: q.correctIndex,
+            explanation: q.explanation,
+          }));
 
-        setQuestions(formatted);
-        setUserAnswers({});
-        setCurrentIndex(0);
-        setIsSubmitted(false);
+          setQuestions(formatted);
+          setUserAnswers({});
+          setCurrentIndex(0);
+          setIsSubmitted(false);
+        }
       }
     } catch (err) {
-      console.error('Error generating AI quiz:', err);
+      console.warn('Backend quiz API unavailable, keeping curated questions:', err);
     } finally {
       setIsGenerating(false);
     }

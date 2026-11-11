@@ -12,6 +12,7 @@ import { QuizArenaView } from './components/QuizArenaView';
 import { WelcomeModal } from './components/WelcomeModal';
 import { Footer } from './components/Footer';
 import { StudentProfile } from './utils/rules';
+import { generateRPMFallback } from './utils/curriculumEngine';
 
 const STORAGE_KEY_PROFILE = 'rpm_student_profile';
 const STORAGE_KEY_CHAT = 'rpm_chat_history';
@@ -93,42 +94,61 @@ export default function App() {
     setIsLoadingChat(true);
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          imageBase64,
-          useThinking,
-          studentName,
-          grade,
-          topic: activeTopic,
-          history: messages.slice(-6),
-        }),
-      });
+      let botReply = '';
+      let botModelUsed = "RA'BUNG Curriculum Engine";
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Gagal memproses pesan AI.');
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            imageBase64,
+            useThinking,
+            studentName,
+            grade,
+            topic: activeTopic,
+            history: messages.slice(-6),
+          }),
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.reply) {
+            botReply = data.reply;
+            botModelUsed = data.modelUsed || 'gemini-3.1-flash-lite';
+          }
+        }
+      } catch (networkErr) {
+        console.warn('Network API request failed, utilizing client curriculum engine:', networkErr);
+      }
+
+      // If remote API returned non-JSON, 404 (e.g. static hosting on Vercel), or was unavailable:
+      if (!botReply) {
+        botReply = generateRPMFallback(studentName, grade, activeTopic, text);
       }
 
       const botMsg: ChatMessage = {
         id: `rpm-${Date.now()}`,
         role: 'assistant',
-        content: data.reply,
+        content: botReply,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        modelUsed: data.modelUsed,
+        modelUsed: botModelUsed,
       };
 
       setMessages((prev) => [...prev, botMsg]);
-    } catch (err: any) {
-      const errorMsg: ChatMessage = {
-        id: `rpm-err-${Date.now()}`,
+    } catch {
+      // Safe fallback if any unexpected error occurs
+      const fallbackReply = generateRPMFallback(studentName, grade, activeTopic, text);
+      const botMsg: ChatMessage = {
+        id: `rpm-safe-${Date.now()}`,
         role: 'assistant',
-        content: `Halo ${studentName}! Maaf terjadi kendala teknis saat menghubungi AI: ${err?.message || 'Koneksi terganggu'}. Silakan coba kirim ulang pertanyaanmu.`,
+        content: fallbackReply,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        modelUsed: "RA'BUNG Curriculum Engine",
       };
-      setMessages((prev) => [...prev, errorMsg]);
+      setMessages((prev) => [...prev, botMsg]);
     } finally {
       setIsLoadingChat(false);
     }
