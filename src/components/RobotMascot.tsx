@@ -78,7 +78,15 @@ export const RobotMascot: React.FC<RobotMascotProps> = ({
     <div className="flex items-center gap-4 p-3.5 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/60 to-emerald-950/20 border border-slate-800/80 shadow-md">
       {/* Avatar Container with glowing border */}
       <div className="relative shrink-0">
-        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 border-emerald-500/40 bg-slate-950 shadow-[0_0_18px_rgba(16,185,129,0.3)] transition-transform hover:scale-105 duration-200">
+        <div
+          className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 bg-slate-950 transition-transform hover:scale-105 duration-200 ${
+            status === 'thinking'
+              ? 'border-amber-400/70 shadow-[0_0_24px_rgba(251,191,36,0.35)]'
+              : status === 'speaking' || isPlayingAudio
+              ? 'border-cyan-400/70 shadow-[0_0_24px_rgba(34,211,238,0.4)]'
+              : 'border-emerald-500/50 glow-neon-green'
+          }`}
+        >
           <img
             src={avatarSrc}
             alt="RA'BUNG-Pintar Mascot"
@@ -88,18 +96,42 @@ export const RobotMascot: React.FC<RobotMascotProps> = ({
               (e.currentTarget as HTMLImageElement).src = fallbackAvatar;
             }}
           />
+          {/* Futuristic HUD Visor / Glowing Eye Light Indicators */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent flex items-end justify-center pb-1">
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`w-2 h-1 rounded-full transition-colors ${
+                  status === 'thinking'
+                    ? 'bg-amber-400 animate-ping'
+                    : status === 'speaking' || isPlayingAudio
+                    ? 'bg-cyan-400 animate-pulse'
+                    : 'bg-emerald-400 animate-pulse'
+                }`}
+              />
+              <span className="w-3 h-0.5 rounded-full bg-emerald-500/50" />
+              <span
+                className={`w-2 h-1 rounded-full transition-colors ${
+                  status === 'thinking'
+                    ? 'bg-amber-400 animate-ping'
+                    : status === 'speaking' || isPlayingAudio
+                    ? 'bg-cyan-400 animate-pulse'
+                    : 'bg-emerald-400 animate-pulse'
+                }`}
+              />
+            </div>
+          </div>
         </div>
-        {/* Eye/Circuits glow effect */}
+        {/* Status badge */}
         <div
-          className={`absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-semibold border ${
+          className={`absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-mono font-semibold border shadow-sm ${
             status === 'thinking'
-              ? 'bg-amber-950/90 text-amber-300 border-amber-500/50'
+              ? 'bg-amber-950/95 text-amber-300 border-amber-500/60'
               : status === 'speaking' || isPlayingAudio
-              ? 'bg-cyan-950/90 text-cyan-300 border-cyan-500/50'
-              : 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50'
+              ? 'bg-cyan-950/95 text-cyan-300 border-cyan-500/60'
+              : 'bg-emerald-950/95 text-emerald-300 border-emerald-500/60'
           }`}
         >
-          {status === 'thinking' ? 'AI THINK' : "RA'BUNG"}
+          {status === 'thinking' ? 'AI THINK' : status === 'speaking' || isPlayingAudio ? 'SPEAK' : "RA'BUNG"}
         </div>
       </div>
 
@@ -114,7 +146,7 @@ export const RobotMascot: React.FC<RobotMascotProps> = ({
         <p className="text-xs text-slate-300 line-clamp-1 mt-0.5">
           {getStatusLabel()}
           <span className="text-slate-400 ml-1.5 font-mono text-[11px]">
-            {isPlayingAudio ? '• Audio aktif' : '• Model: Gemini 3.8 Flash'}
+            {isPlayingAudio ? '• Audio aktif' : "• RA'BUNG AI · RPM"}
           </span>
         </p>
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { StudentProfile } from '../utils/rules';
 import { generateTroubleshootFallback } from '../utils/curriculumEngine';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface TroubleshooterAIViewProps {
   student: StudentProfile;
@@ -298,9 +299,7 @@ export const TroubleshooterAIView: React.FC<TroubleshooterAIViewProps> = ({ stud
                   </p>
                 </div>
               ) : diagnosisResult ? (
-                <div className="prose prose-invert prose-sm max-w-none text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
-                  {diagnosisResult}
-                </div>
+                <MarkdownRenderer content={diagnosisResult} />
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-2 text-slate-400">
                   <AlertTriangle className="w-8 h-8 text-slate-400" />

@@ -8,14 +8,20 @@ import { Header } from './components/Header';
 import { ChatbotView, ChatMessage } from './components/ChatbotView';
 import { LabSimulatorView } from './components/LabSimulatorView';
 import { TroubleshooterAIView } from './components/TroubleshooterAIView';
-import { QuizArenaView } from './components/QuizArenaView';
 import { WelcomeModal } from './components/WelcomeModal';
 import { Footer } from './components/Footer';
 import { StudentProfile } from './utils/rules';
-import { generateRPMFallback } from './utils/curriculumEngine';
+import { CURRICULUM_DATA } from './data/curriculum';
+import { generateRPMFallback, ChatMode } from './utils/curriculumEngine';
 
 const STORAGE_KEY_PROFILE = 'rpm_student_profile';
 const STORAGE_KEY_CHAT = 'rpm_chat_history';
+
+function getDefaultTopicForGrade(grade?: 'X' | 'XI' | 'XII'): string {
+  const g = grade || 'XI';
+  const match = CURRICULUM_DATA.find((t) => t.grade === g);
+  return match ? match.title : CURRICULUM_DATA[0].title;
+}
 
 export default function App() {
   const [student, setStudent] = useState<StudentProfile | null>(() => {
@@ -28,14 +34,19 @@ export default function App() {
   });
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'chat' | 'lab' | 'troubleshoot' | 'quiz'>('chat');
-  const [activeTopic, setActiveTopic] = useState('Dasar-Dasar TJKT & Proses Bisnis');
+  const [currentView, setCurrentView] = useState<'chat' | 'lab' | 'troubleshoot'>('chat');
+  const [activeTopic, setActiveTopic] = useState<string>(() =>
+    getDefaultTopicForGrade(student?.grade)
+  );
   const [isLoadingChat, setIsLoadingChat] = useState(false);
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CHAT);
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed: ChatMessage[] = JSON.parse(saved);
+      // Do not replay typing animation for previously persisted history
+      return parsed.map((m) => ({ ...m, isNew: false }));
     } catch {
       return [];
     }
@@ -48,10 +59,22 @@ export default function App() {
     }
   }, [student]);
 
-  // Save chat history to localStorage
+  // Keep activeTopic synced with student grade curriculum
+  useEffect(() => {
+    const grade = student?.grade || 'XI';
+    const validForGrade = CURRICULUM_DATA.some(
+      (t) => t.grade === grade && t.title === activeTopic
+    );
+    if (!validForGrade) {
+      setActiveTopic(getDefaultTopicForGrade(grade));
+    }
+  }, [student?.grade, activeTopic]);
+
+  // Save chat history to localStorage (strip transient isNew flag)
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(messages));
+      const toPersist = messages.map(({ isNew: _isNew, ...rest }) => rest);
+      localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(toPersist));
     } catch (e) {
       console.warn('Could not save chat history to localStorage:', e);
     }
@@ -59,11 +82,21 @@ export default function App() {
 
   const handleSaveProfile = (newProfile: StudentProfile) => {
     setStudent(newProfile);
+    setActiveTopic(getDefaultTopicForGrade(newProfile.grade));
     try {
       localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(newProfile));
     } catch (e) {
       console.warn('Could not save profile:', e);
     }
+  };
+
+  const handleChangeGrade = (newGrade: 'X' | 'XI' | 'XII') => {
+    const updated: StudentProfile = {
+      name: student?.name || 'Siswa',
+      department: student?.department || 'TJKT',
+      grade: newGrade,
+    };
+    handleSaveProfile(updated);
   };
 
   const handleResetAllData = () => {
@@ -77,7 +110,8 @@ export default function App() {
   const handleSendMessage = async (
     text: string,
     imageBase64?: string,
-    useThinking?: boolean
+    useThinking?: boolean,
+    chatMode: ChatMode = 'teori'
   ) => {
     const studentName = student?.name || 'Siswa';
     const grade = student?.grade || 'XI';
@@ -105,6 +139,7 @@ export default function App() {
             message: text,
             imageBase64,
             useThinking,
+            chatMode,
             studentName,
             grade,
             topic: activeTopic,
@@ -124,9 +159,8 @@ export default function App() {
         console.warn('Network API request failed, utilizing client curriculum engine:', networkErr);
       }
 
-      // If remote API returned non-JSON, 404 (e.g. static hosting on Vercel), or was unavailable:
       if (!botReply) {
-        botReply = generateRPMFallback(studentName, grade, activeTopic, text);
+        botReply = generateRPMFallback(studentName, grade, activeTopic, text, chatMode);
       }
 
       const botMsg: ChatMessage = {
@@ -135,18 +169,19 @@ export default function App() {
         content: botReply,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         modelUsed: botModelUsed,
+        isNew: true,
       };
 
       setMessages((prev) => [...prev, botMsg]);
     } catch {
-      // Safe fallback if any unexpected error occurs
-      const fallbackReply = generateRPMFallback(studentName, grade, activeTopic, text);
+      const fallbackReply = generateRPMFallback(studentName, grade, activeTopic, text, chatMode);
       const botMsg: ChatMessage = {
         id: `rpm-safe-${Date.now()}`,
         role: 'assistant',
         content: fallbackReply,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         modelUsed: "RA'BUNG Curriculum Engine",
+        isNew: true,
       };
       setMessages((prev) => [...prev, botMsg]);
     } finally {
@@ -172,7 +207,6 @@ export default function App() {
     const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
     if (!lastUserMsg) return;
 
-    // Remove last assistant message
     setMessages((prev) => {
       const copy = [...prev];
       if (copy[copy.length - 1].role === 'assistant') {
@@ -181,13 +215,13 @@ export default function App() {
       return copy;
     });
 
-    await handleSendMessage(lastUserMsg.content, lastUserMsg.imagePreview, false);
+    await handleSendMessage(lastUserMsg.content, lastUserMsg.imagePreview, false, 'teori');
   };
 
   const handleAskAboutLab = (labTitle: string, question: string) => {
     setActiveTopic(labTitle);
     setCurrentView('chat');
-    handleSendMessage(question);
+    handleSendMessage(question, undefined, false, 'praktikum');
   };
 
   return (
@@ -213,6 +247,7 @@ export default function App() {
             isLoading={isLoadingChat}
             activeTopic={activeTopic}
             onSelectTopic={setActiveTopic}
+            onChangeGrade={handleChangeGrade}
           />
         )}
 
@@ -222,10 +257,6 @@ export default function App() {
 
         {currentView === 'troubleshoot' && student && (
           <TroubleshooterAIView student={student} />
-        )}
-
-        {currentView === 'quiz' && student && (
-          <QuizArenaView student={student} />
         )}
       </main>
 

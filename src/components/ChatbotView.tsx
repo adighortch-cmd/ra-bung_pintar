@@ -11,12 +11,14 @@ import {
   Sparkles,
   Brain,
   Lightbulb,
-  FileCode,
-  Terminal,
+  BookOpen,
+  FastForward,
 } from 'lucide-react';
 import { StudentProfile } from '../utils/rules';
-import { CURRICULUM_DATA, SubjectTopic } from '../data/curriculum';
+import { CURRICULUM_DATA } from '../data/curriculum';
+import { ChatMode } from '../utils/curriculumEngine';
 import { RobotMascot } from './RobotMascot';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 export interface ChatMessage {
   id: string;
@@ -25,19 +27,77 @@ export interface ChatMessage {
   timestamp: string;
   imagePreview?: string;
   modelUsed?: string;
+  isNew?: boolean;
 }
 
 interface ChatbotViewProps {
   student: StudentProfile;
   messages: ChatMessage[];
-  onSendMessage: (text: string, imageBase64?: string, useThinking?: boolean) => Promise<void>;
+  onSendMessage: (
+    text: string,
+    imageBase64?: string,
+    useThinking?: boolean,
+    chatMode?: ChatMode
+  ) => Promise<void>;
   onClearHistory: () => void;
   onDeleteMessage?: (id: string) => void;
   onRegenerate: () => Promise<void>;
   isLoading: boolean;
   activeTopic: string;
   onSelectTopic: (topic: string) => void;
+  onChangeGrade?: (grade: 'X' | 'XI' | 'XII') => void;
 }
+
+/**
+ * Progressive typing reveal for newly generated assistant messages.
+ */
+const TypingAssistantMessage: React.FC<{
+  content: string;
+  isNew?: boolean;
+  onComplete?: () => void;
+}> = ({ content, isNew, onComplete }) => {
+  const [visibleLen, setVisibleLen] = useState<number>(() =>
+    isNew ? Math.min(24, content.length) : content.length
+  );
+
+  useEffect(() => {
+    if (!isNew) {
+      setVisibleLen(content.length);
+      return;
+    }
+
+    if (visibleLen >= content.length) {
+      onComplete?.();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      // Smooth burst reveal (~24 chars every 18ms -> quick yet noticeably animated)
+      setVisibleLen((prev) => Math.min(content.length, prev + 28));
+    }, 18);
+
+    return () => clearTimeout(timer);
+  }, [visibleLen, content, isNew, onComplete]);
+
+  const isTyping = isNew && visibleLen < content.length;
+  const displaySlice = isTyping ? content.slice(0, visibleLen) : content;
+
+  return (
+    <div className="space-y-2">
+      <MarkdownRenderer content={displaySlice} />
+      {isTyping && (
+        <button
+          type="button"
+          onClick={() => setVisibleLen(content.length)}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-emerald-300 border border-slate-700 transition-colors"
+        >
+          <FastForward className="w-3 h-3" />
+          <span>Tampilkan Semua</span>
+        </button>
+      )}
+    </div>
+  );
+};
 
 export const ChatbotView: React.FC<ChatbotViewProps> = ({
   student,
@@ -49,20 +109,22 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
   isLoading,
   activeTopic,
   onSelectTopic,
+  onChangeGrade,
 }) => {
   const [inputText, setInputText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [useThinking, setUseThinking] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const [chatMode, setChatMode] = useState<'teori' | 'praktikum' | 'soal'>('teori');
+  const [chatMode, setChatMode] = useState<ChatMode>('teori');
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [showTopicDrawer, setShowTopicDrawer] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const gradeTopics = CURRICULUM_DATA.filter((t) => t.grade === student.grade);
-  const currentTopicData = CURRICULUM_DATA.find((t) => t.title === activeTopic) || gradeTopics[0];
+  const currentTopicData = gradeTopics.find((t) => t.title === activeTopic) || gradeTopics[0];
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -77,7 +139,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
 
     setInputText('');
     setSelectedImage(null);
-    await onSendMessage(textToSend, imageToSend, useThinking);
+    await onSendMessage(textToSend, imageToSend, useThinking, chatMode);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,11 +169,10 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
     }
 
     window.speechSynthesis.cancel();
-    // Clean markdown before speaking
     const cleanText = text
       .replace(/```[\s\S]*?```/g, 'Perintah kode.')
-      .replace(/[*#_`]/g, '')
-      .slice(0, 400);
+      .replace(/[*#_`$]/g, '')
+      .slice(0, 450);
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'id-ID';
@@ -126,7 +187,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
   return (
     <div className="flex flex-col h-[calc(100vh-8.5rem)] max-w-6xl mx-auto px-3 sm:px-6 py-3">
       {/* Top Banner with Robot Mascot */}
-      <div className="mb-4">
+      <div className="mb-3">
         <RobotMascot
           status={isLoading ? 'thinking' : speakingId ? 'speaking' : 'standby'}
           studentName={student.name}
@@ -135,45 +196,89 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
 
       {/* Curriculum & Mode Filter Strip */}
       <div className="mb-3 space-y-2">
-        {/* Mode Selector and Action Toolbar */}
+        {/* Mode Selector, Quick Grade Switcher, and Action Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* Mode Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-lg">
-            <button
-              onClick={() => setChatMode('teori')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                chatMode === 'teori'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Mode Teori
-            </button>
-            <button
-              onClick={() => setChatMode('praktikum')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                chatMode === 'praktikum'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Mode Praktikum
-            </button>
-            <button
-              onClick={() => setChatMode('soal')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                chatMode === 'soal'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Mode Latihan Soal
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Mode Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setChatMode('teori')}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                  chatMode === 'teori'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Mode Teori
+              </button>
+              <button
+                type="button"
+                onClick={() => setChatMode('praktikum')}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                  chatMode === 'praktikum'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Mode Praktikum
+              </button>
+              <button
+                type="button"
+                onClick={() => setChatMode('soal')}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                  chatMode === 'soal'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Mode Latihan Soal
+              </button>
+            </div>
+
+            {/* Quick Grade Selector X / XI / XII */}
+            {onChangeGrade && (
+              <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-lg">
+                <span className="text-[11px] font-mono text-slate-400 px-1.5">Kelas:</span>
+                {(['X', 'XI', 'XII'] as const).map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => onChangeGrade(g)}
+                    className={`px-2 py-0.5 text-xs font-bold rounded transition-colors ${
+                      student.grade === g
+                        ? 'bg-emerald-500 text-slate-950'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                    }`}
+                    title={`Pindah ke materi TJKT Kelas ${g}`}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Quick utility controls */}
           <div className="flex items-center gap-2">
+            {messages.length > 0 && currentTopicData && (
+              <button
+                type="button"
+                onClick={() => setShowTopicDrawer((v) => !v)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border transition-colors whitespace-nowrap shrink-0 ${
+                  showTopicDrawer
+                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                    : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+                title="Lihat contoh pertanyaan untuk topik terpilih"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Menu Topik</span>
+              </button>
+            )}
+
             <button
+              type="button"
               onClick={() => setUseThinking(!useThinking)}
               className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border transition-all whitespace-nowrap shrink-0 ${
                 useThinking
@@ -230,11 +335,12 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
         {/* Subject Chips based on student grade */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
-            Kelas {student.grade}:
+            {student.grade === 'X' ? 'Fase E · X:' : `Fase F · ${student.grade}:`}
           </span>
           {gradeTopics.map((topic) => (
             <button
               key={topic.id}
+              type="button"
               onClick={() => onSelectTopic(topic.title)}
               className={`px-2.5 py-1 text-xs rounded-lg transition-all whitespace-nowrap shrink-0 border ${
                 activeTopic === topic.title
@@ -246,6 +352,40 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
             </button>
           ))}
         </div>
+
+        {/* Optional Quick Prompt Drawer when messages already exist */}
+        {showTopicDrawer && messages.length > 0 && currentTopicData && (
+          <div className="p-3 rounded-xl bg-slate-900/95 border border-emerald-500/30 space-y-2 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-emerald-300">
+                Pertanyaan Populer: {currentTopicData.title}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowTopicDrawer(false)}
+                className="text-slate-400 hover:text-white text-xs px-1.5"
+              >
+                Tutup
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {currentTopicData.presetPrompts.map((prompt, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setShowTopicDrawer(false);
+                    onSendMessage(prompt, undefined, useThinking, chatMode);
+                  }}
+                  className="p-2 rounded-lg bg-slate-950/80 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/40 text-left text-xs text-slate-300 hover:text-emerald-300 transition-all flex items-start gap-2"
+                >
+                  <Lightbulb className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>{prompt}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Messages Thread Container */}
@@ -261,7 +401,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
               </h3>
               <p className="text-xs sm:text-sm text-slate-400 mt-1">
                 Saya RA'BUNG-Pintar, asisten belajar TJKT kelas {student.grade} SMKN 3 Tana Toraja.
-                Silakan tanyakan materi teori, instruksi praktikum server, atau uji konfigurasi jaringan!
+                Pilih mode di atas lalu tanyakan materi teori, instruksi praktikum, atau latihan soal!
               </p>
             </div>
 
@@ -275,7 +415,8 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
                   {currentTopicData.presetPrompts.map((prompt, idx) => (
                     <button
                       key={idx}
-                      onClick={() => onSendMessage(prompt, undefined, useThinking)}
+                      type="button"
+                      onClick={() => onSendMessage(prompt, undefined, useThinking, chatMode)}
                       className="p-2.5 rounded-xl bg-slate-900/90 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/40 text-left text-xs text-slate-300 hover:text-emerald-300 transition-all shadow-sm flex items-start gap-2"
                     >
                       <Lightbulb className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -339,16 +480,21 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
                   </div>
                 )}
 
-                {/* Content formatted with code blocks & structure highlight */}
-                <div className="prose prose-invert prose-sm max-w-none text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">
-                  {msg.content}
-                </div>
+                {/* Message content */}
+                {msg.role === 'assistant' ? (
+                  <TypingAssistantMessage content={msg.content} isNew={msg.isNew} />
+                ) : (
+                  <div className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap text-white">
+                    {msg.content}
+                  </div>
+                )}
 
                 {/* Assistant Action Buttons */}
                 {msg.role === 'assistant' && (
                   <div className="pt-2 mt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
                     <div className="flex items-center gap-1">
                       <button
+                        type="button"
                         onClick={() => handleCopyText(msg.id, msg.content)}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-800 hover:text-slate-200 transition-colors"
                         title="Salin jawaban lengkap"
@@ -367,6 +513,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
                       </button>
 
                       <button
+                        type="button"
                         onClick={() => handleSpeak(msg.id, msg.content)}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-800 hover:text-slate-200 transition-colors"
                         title="Dengarkan pembacaan jawaban"
@@ -386,6 +533,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
                     </div>
 
                     <button
+                      type="button"
                       onClick={onRegenerate}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded hover:bg-slate-800 hover:text-slate-200 transition-colors"
                       title="Buat ulang respon ini"
@@ -422,6 +570,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
             <span className="text-slate-400">Siap dianalisis oleh AI</span>
           </div>
           <button
+            type="button"
             onClick={() => setSelectedImage(null)}
             className="p-1 text-slate-400 hover:text-rose-400 ml-2"
             title="Hapus gambar"
@@ -454,7 +603,7 @@ export const ChatbotView: React.FC<ChatbotViewProps> = ({
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder={`Tanyakan materi TJKT (${student.grade}), konfigurasi Linux/Mikrotik, atau troubleshooting...`}
+          placeholder={`[${chatMode.toUpperCase()}] Tanyakan materi ${activeTopic} (Kelas ${student.grade})...`}
           disabled={isLoading}
           className="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition-colors"
         />

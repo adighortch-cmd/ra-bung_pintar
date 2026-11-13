@@ -6,6 +6,7 @@ import {
   simulateTerminalCommand,
   calculateQuizResult,
 } from './rules';
+import { generateRPMFallback } from './curriculumEngine';
 
 test('getTopicsForGrade returns proper curriculum for class X, XI, and XII', () => {
   const topicsX = getTopicsForGrade('X');
@@ -85,3 +86,36 @@ test('calculateQuizResult accurately scores user test answers', () => {
   assert.equal(res2.score, 50);
   assert.equal(res2.correctCount, 2);
 });
+
+test('simulateTerminalCommand warns before destructive commands and supports new labs', () => {
+  const rmWarn = simulateTerminalCommand('rm -rf /etc');
+  assert.equal(rmWarn.isError, true);
+  assert.ok(rmWarn.output.includes('PERINGATAN KEAMANAN'));
+
+  const iptablesWarn = simulateTerminalCommand('iptables -F');
+  assert.equal(iptablesWarn.isError, true);
+  assert.ok(iptablesWarn.output.includes('PERINGATAN KEAMANAN'));
+
+  const bindCheck = simulateTerminalCommand('named-checkconf');
+  assert.equal(bindCheck.isCompletedGoal, true);
+  assert.ok(bindCheck.output.includes('Syntax OK'));
+
+  const vlanShow = simulateTerminalCommand('show vlan');
+  assert.ok(vlanShow.output.includes('Lab_Siswa_TJKT'));
+});
+
+test('generateRPMFallback adapts to teori, praktikum, and soal modes', () => {
+  const soalRes = generateRPMFallback('Budi', 'XI', 'DHCP Server', 'Latihan IP', 'soal');
+  assert.ok(soalRes.includes('Pilihan Ganda'));
+  assert.ok(soalRes.includes('Esai'));
+  assert.ok(soalRes.includes('Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas'));
+
+  const prakRes = generateRPMFallback('Budi', 'XI', 'Debian Server', 'Setting IP', 'praktikum');
+  assert.ok(prakRes.includes('tidak menjalankan perintah secara langsung'));
+  assert.ok(prakRes.includes('Peringatan Keamanan'));
+
+  const teoriRes = generateRPMFallback('Budi', 'XII', 'Fiber Optik', 'Apa itu FTTH?', 'teori');
+  const parsed = parseRPMSections(teoriRes);
+  assert.equal(parsed.isStructured, true);
+});
+

@@ -18,15 +18,17 @@ export default async function handler(req: any, res: any) {
       studentName = 'Siswa',
       grade = 'XI',
       topic = 'Dasar-Dasar TJKT',
+      chatMode = 'teori',
     } = body;
 
-    const reply = generateRPMFallback(studentName, grade, topic, message);
+    const normalizedMode = chatMode === 'praktikum' || chatMode === 'soal' ? chatMode : 'teori';
+    const reply = generateRPMFallback(studentName, grade, topic, message, normalizedMode);
     res.status(200).json({
       reply,
       modelUsed: "RA'BUNG Curriculum Engine",
     });
   } catch {
-    const reply = generateRPMFallback('Siswa', 'XI', 'Dasar-Dasar TJKT', '');
+    const reply = generateRPMFallback('Siswa', 'XI', 'Dasar-Dasar TJKT', '', 'teori');
     res.status(200).json({
       reply,
       modelUsed: "RA'BUNG Curriculum Engine",

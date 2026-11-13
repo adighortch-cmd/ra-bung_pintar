@@ -3,8 +3,8 @@ import { User, Cpu } from 'lucide-react';
 import { StudentProfile } from '../utils/rules';
 
 interface HeaderProps {
-  currentView: 'chat' | 'lab' | 'troubleshoot' | 'quiz';
-  onSelectView: (view: 'chat' | 'lab' | 'troubleshoot' | 'quiz') => void;
+  currentView: 'chat' | 'lab' | 'troubleshoot';
+  onSelectView: (view: 'chat' | 'lab' | 'troubleshoot') => void;
   student: StudentProfile | null;
   onOpenProfile: () => void;
 }
@@ -18,9 +18,14 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-8 px-4 sm:px-6 py-3">
-        {/* Zone 1: Brand wordmark with provided logo */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-lg overflow-hidden border border-emerald-500/40 bg-slate-900 shadow-[0_0_12px_rgba(16,185,129,0.25)] flex items-center justify-center">
+        {/* Zone 1: Brand wordmark with provided logo (clickable home) */}
+        <button
+          type="button"
+          onClick={() => onSelectView('chat')}
+          className="flex items-center gap-3 shrink-0 group text-left rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+          title="Kembali ke Beranda Chatbot Pembelajaran"
+        >
+          <div className="w-9 h-9 rounded-lg overflow-hidden border border-emerald-500/40 group-hover:border-emerald-400 bg-slate-900 shadow-[0_0_12px_rgba(16,185,129,0.25)] flex items-center justify-center transition-colors">
             <img
               src="https://lh3.googleusercontent.com/d/1FZcwtfEquYv239AnNPQRbBUSTtkFUydG"
               alt="Logo RA'BUNG-Pintar"
@@ -33,11 +38,11 @@ export const Header: React.FC<HeaderProps> = ({
             />
           </div>
           <div className="flex flex-col">
-            <span className="font-display font-extrabold text-lg sm:text-xl tracking-tight text-white whitespace-nowrap">
+            <span className="font-display font-extrabold text-lg sm:text-xl tracking-tight text-white group-hover:text-emerald-300 transition-colors whitespace-nowrap">
               RA'BUNG-Pintar
             </span>
           </div>
-        </div>
+        </button>
 
         {/* Zone 2: 4 single-line nav links */}
         <nav className="hidden md:flex items-center gap-1 sm:gap-2">
@@ -70,16 +75,6 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             Troubleshooter AI
-          </button>
-          <button
-            onClick={() => onSelectView('quiz')}
-            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
-              currentView === 'quiz'
-                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            Kuis & Ujian
           </button>
         </nav>
 
@@ -119,12 +114,6 @@ export const Header: React.FC<HeaderProps> = ({
           className={`px-2.5 py-1 rounded whitespace-nowrap ${currentView === 'troubleshoot' ? 'text-emerald-400 font-semibold' : 'text-slate-400'}`}
         >
           Troubleshooter
-        </button>
-        <button
-          onClick={() => onSelectView('quiz')}
-          className={`px-2.5 py-1 rounded whitespace-nowrap ${currentView === 'quiz' ? 'text-emerald-400 font-semibold' : 'text-slate-400'}`}
-        >
-          Kuis
         </button>
       </div>
     </header>

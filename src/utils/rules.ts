@@ -219,6 +219,41 @@ iface eth1 inet static
     };
   }
 
+  // Destructive command safety warning (AI Safety Rule #4)
+  if (
+    /rm\s+-rf\s+\//.test(trimmed) ||
+    trimmed.includes('mkfs') ||
+    trimmed.includes('dd if=') ||
+    trimmed.includes('iptables -F') ||
+    trimmed.includes('reset-configuration')
+  ) {
+    return {
+      isError: true,
+      output: `[PERINGATAN KEAMANAN RA'BUNG-PINTAR (SIMULASI)]\nPerintah "${trimmed}" berpotensi menghapus data atau memutus seluruh aturan jaringan secara permanen!\nDi lingkungan produksi nyata, selalu lakukan backup konfigurasi terlebih dahulu dan pastikan Anda berada di lab virtual yang aman.`,
+    };
+  }
+
+  if (trimmed.includes('systemctl status bind9') || trimmed.includes('systemctl status named')) {
+    return {
+      output: `● named.service - BIND Domain Name Server (SIMULASI)
+     Loaded: loaded (/lib/systemd/system/named.service; enabled)
+     Active: active (running) since Mon 2026-11-11 08:20:14 WITA; 15min ago
+       Docs: man:named(8)
+   Main PID: 1024 (named)
+     Status: "all zones loaded cleanly"`,
+    };
+  }
+
+  if (trimmed.includes('systemctl status apache2') || trimmed.includes('systemctl status ssh')) {
+    const srv = trimmed.includes('apache2') ? 'apache2' : 'ssh';
+    return {
+      output: `● ${srv}.service - ${srv === 'apache2' ? 'The Apache HTTP Server' : 'OpenBSD Secure Shell server'} (SIMULASI)
+     Loaded: loaded (/lib/systemd/system/${srv}.service; enabled)
+     Active: active (running) since Mon 2026-11-11 08:18:05 WITA; 18min ago
+     Status: "Service ready for laboratory testing"`,
+    };
+  }
+
   if (trimmed.includes('systemctl status isc-dhcp-server')) {
     return {
       output: `● isc-dhcp-server.service - LSB: DHCP server
@@ -234,10 +269,29 @@ iface eth1 inet static
     };
   }
 
-  if (trimmed.includes('systemctl restart') || trimmed.includes('systemctl start')) {
+  if (trimmed.includes('systemctl restart') || trimmed.includes('systemctl start') || trimmed.includes('systemctl reload')) {
     const srv = trimmed.split(' ')[2] || 'service';
     return {
-      output: `[ OK ] Restarting ${srv}... Service restarted successfully.`,
+      output: `[ OK ] Restarting ${srv}... Service restarted successfully (Simulasi Virtual).`,
+      isCompletedGoal: true,
+    };
+  }
+
+  if (trimmed.startsWith('nslookup') || trimmed.startsWith('dig ')) {
+    const domain = trimmed.split(' ')[1] || 'smkn3tator.sch.id';
+    return {
+      output: `Server:         127.0.0.1
+Address:        127.0.0.1#53
+
+Name:   ${domain}
+Address: 192.168.1.1
+(Hasil simulasi DNS lokal — jalankan di Debian lab nyata untuk verifikasi)`,
+    };
+  }
+
+  if (trimmed.startsWith('named-checkconf') || trimmed.startsWith('apache2ctl configtest')) {
+    return {
+      output: `Syntax OK (Konfigurasi lolos pemeriksaan sintaks di lingkungan simulasi).`,
       isCompletedGoal: true,
     };
   }
@@ -252,10 +306,30 @@ iface eth1 inet static
     };
   }
 
+  if (trimmed.startsWith('/ip route print') || trimmed.startsWith('ip route')) {
+    return {
+      output: `Flags: D - DYNAMIC; A - ACTIVE; c - CONNECT, s - STATIC
+ #     DST-ADDRESS        GATEWAY         DISTANCE
+ 0  As 0.0.0.0/0          192.168.100.1          1
+   DAc 192.168.10.0/24    ether2-Lab-Siswa       0
+   DAc 192.168.100.0/24   ether1-Internet        0`,
+    };
+  }
+
   if (trimmed.startsWith('/ip firewall nat print') || trimmed.startsWith('ip firewall nat print')) {
     return {
       output: `Flags: X - disabled, I - invalid, D - dynamic 
  0    chain=srcnat action=masquerade out-interface=ether1-Internet log=no`,
+    };
+  }
+
+  if (trimmed.startsWith('/interface vlan print') || trimmed.startsWith('show vlan')) {
+    return {
+      output: `VLAN Name                             Status    Ports
+---- -------------------------------- --------- -------------------------------
+1    default                          active    Fa0/4 - Fa0/24
+10   Lab_Siswa_TJKT                   active    Fa0/2
+20   Ruang_Guru                       active    Fa0/3`,
     };
   }
 
@@ -277,8 +351,8 @@ target     prot opt source               destination`,
 
   // Fallback realistic response
   return {
-    output: `bash: ${trimmed.split(' ')[0]}: command executed in simulated TJKT lab environment.
-Tip: Ketik 'help' untuk daftar perintah atau 'ip a' untuk mengecek IP.`,
+    output: `[SIMULASI] ${trimmed.split(' ')[0]}: dijalankan di sandbox virtual TJKT (bukan pada komputer nyata Anda).
+Tip: Ketik 'help' untuk daftar perintah atau pilih langkah di panel kiri.`,
   };
 }
 

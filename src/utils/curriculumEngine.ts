@@ -1,11 +1,15 @@
 /**
- * RA'BUNG-Pintar Curriculum Engine
- * Provides deterministic, high-quality, 6-part pedagogical Indonesian responses
+ * RA'BUNG-PINTAR (RPM) Curriculum Engine
+ * Provides deterministic, high-quality, mode-aware Indonesian pedagogical responses
  * for SMKN 3 Tana Toraja TJKT curriculum (Kelas X, XI, XII).
  *
- * Runs seamlessly both in Node.js serverless functions and directly in the browser,
- * guaranteeing 100% reliability on Vercel, Netlify, Cloud Run, or offline environments.
+ * Supports:
+ * - 'teori': Mandatory 6-part learning structure (Sapaan, Penjelasan, Contoh Soal, Pembahasan, Hafalan/Rumus, Penutup)
+ * - 'praktikum': Step-by-step lab guide distinguishing Instruksi, Simulasi, and Eksekusi Nyata + safety warnings
+ * - 'soal': Mixed Pilihan Ganda & Esai practice questions with step-by-step solutions
  */
+
+export type ChatMode = 'teori' | 'praktikum' | 'soal';
 
 export interface CurriculumResponse {
   reply: string;
@@ -16,10 +20,90 @@ export function generateRPMFallback(
   studentName: string,
   grade: string,
   topic: string,
-  userMessage: string
+  userMessage: string,
+  chatMode: ChatMode = 'teori'
 ): string {
   const name = studentName?.trim() || 'Siswa';
   const q = (userMessage || '').toLowerCase();
+
+  // Mode Latihan Soal (Pilihan Ganda + Esai)
+  if (chatMode === 'soal') {
+    return `1. SAPAAN:
+Halo ${name}! Siap mengasah kemampuanmu di Mode Latihan Soal kelas ${grade} TJKT untuk topik "${topic}"? Yuk, kerjakan latihan Pilihan Ganda dan Esai berikut dengan teliti!
+
+2. PENJELASAN SINGKAT:
+Latihan ini dirancang sesuai standar kompetensi TJKT SMKN 3 Tana Toraja untuk menguji pemahaman teori dan kesiapan praktikum laboratorium pada materi ${topic}.
+
+3. CONTOH SOAL (PILIHAN GANDA & ESAI):
+**[Soal Pilihan Ganda]**
+1. Dalam konfigurasi jaringan IPv4 dengan prefix \`/27\` (subnet mask \`255.255.255.224\`), berapakah jumlah alamat IP host yang dapat digunakan oleh komputer klien pada satu subnet?
+   A. 14 host
+   B. 30 host
+   C. 62 host
+   D. 254 host
+
+**[Soal Esai Analisis]**
+2. Jelaskan langkah verifikasi yang harus dilakukan teknisi TJKT jika sebuah layanan server Debian (seperti \`isc-dhcp-server\` atau \`apache2\`) gagal berjalan setelah konfigurasi diubah!
+
+4. JAWABAN DAN PEMBAHASAN:
+- **Pembahasan Soal 1 (Jawaban: B. 30 host):**
+  Prefix \`/27\` menyisakan \`32 - 27 = 5\` bit untuk Host ID. Menggunakan rumus \`2^h - 2 = 2^5 - 2 = 32 - 2 = 30\` host yang valid (dikurangi 1 Network Address dan 1 Broadcast Address).
+- **Pembahasan Soal 2 (Esai):**
+  1) Periksa status dan log error spesifik melalui \`systemctl status <nama-service>\` atau \`journalctl -xeu <nama-service>\`.
+  2) Lakukan uji sintaks file konfigurasi (misal \`dhcpd -t\` atau \`apache2ctl configtest\`).
+  3) Perbaiki baris konfigurasi yang salah, simpan, lalu jalankan \`systemctl restart <nama-service>\`.
+
+5. HAFALAN / RUMUS / KATA KUNCI:
+- Rumus Host IPv4: $Host = 2^{(32 - prefix)} - 2$
+- Uji Sintaks Apache: \`apache2ctl configtest\`
+- Uji Sintaks BIND9: \`named-checkconf\`
+- Uji Sintaks DHCP: \`dhcpd -t\`
+
+6. PERTANYAAN PENUTUP:
+Coba hitung berapa host yang tersedia untuk prefix \`/29\`, lalu tuliskan jawabanmu di kolom chat agar kita koreksi bersama!
+Tetap semangat: "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
+  }
+
+  // Mode Praktikum (Instruksi vs Simulasi vs Eksekusi Nyata + Safety Warning)
+  if (chatMode === 'praktikum') {
+    return `1. SAPAAN:
+Halo ${name}! Selamat datang di Mode Praktikum RA'BUNG-PINTAR SMKN 3 Tana Toraja! Saya akan membimbing langkah demi langkah praktikum "${topic}" untuk kelas ${grade}.
+
+2. PENJELASAN SINGKAT (INSTRUKSI & CATATAN EKSEKUSI):
+> **Catatan Penting:** Sebagai asisten AI di browser, saya **tidak menjalankan perintah secara langsung** di komputer/router fisik Anda. Semua perintah di bawah adalah **panduan instruksi** yang dapat Anda uji di **Simulator Terminal Lab TJKT** atau di perangkat praktikum sekolah.
+
+**Langkah Praktikum (${topic}):**
+1. **Persiapan Lingkungan:** Pastikan Anda berada di VM Debian / Router lab (bukan perangkat produksi utama) dan sudah melakukan backup konfigurasi.
+2. **Pemeriksaan Antarmuka:** Jalankan perintah pengecekan interface dan status layanan terlebih dahulu.
+3. **Konfigurasi & Uji Sintaks:** Terapkan konfigurasi sesuai OS, lalu selalu uji sintaks sebelum me-restart service.
+4. **Verifikasi Klien:** Uji konektivitas dari komputer klien menggunakan \`ping\` atau utilitas penguji layanan.
+
+3. CONTOH KASUS PRAKTIKUM:
+Saat mempraktikkan "${userMessage || topic}", bagaimana urutan perintah verifikasi dasar di Linux Debian sebelum dan sesudah mengubah konfigurasi jaringan?
+
+4. JAWABAN DAN PEMBAHASAN:
+\`\`\`bash
+# 1. Cek IP dan status interface saat ini
+ip a
+
+# 2. Backup konfigurasi sebelum mengedit (praktik aman)
+cp /etc/network/interfaces /etc/network/interfaces.bak
+
+# 3. Verifikasi tabel routing dan uji koneksi gateway
+ip route
+ping -c 4 8.8.8.8
+\`\`\`
+> **Peringatan Keamanan:** Hindari perintah destruktif seperti \`rm -rf /\`, \`mkfs\`, atau \`iptables -F\` tanpa backup karena dapat menghapus sistem atau memutus koneksi remote secara permanen.
+
+5. HAFALAN / RUMUS / KATA KUNCI:
+- **Instruksi:** Langkah yang Anda ketik di perangkat nyata (Debian/Mikrotik/Cisco).
+- **Simulasi:** Uji coba aman di tab *Praktikum Lab TJKT* aplikasi ini.
+- **Verifikasi Wajib:** Selalu cek log dengan \`journalctl -xe\` bila service gagal start.
+
+6. PERTANYAAN PENUTUP:
+Sudahkah kamu mencoba mengetikkan perintah \`ip a\` atau \`systemctl status\` di tab **Praktikum Lab TJKT**? Bagikan hasil output terminalmu di sini jika ada error!
+"Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
+  }
 
   // 1. Fiber Optik & Fusion Splicing
   if (
@@ -29,59 +113,50 @@ export function generateRPMFallback(
     q.includes('ftth') ||
     q.includes('cleaver') ||
     q.includes('otdr') ||
-    q.includes('opm')
+    q.includes('opm') ||
+    q.includes('odp')
   ) {
     return `1. SAPAAN:
-Halo ${name}! Semangat belajarnya di bengkel jaringan fiber optik SMKN 3 Tana Toraja! Yuk, kita pelajari langkah penyambungan kabel serat optik dengan Fusion Splicer.
+Halo ${name}! Semangat belajarnya di bengkel jaringan fiber optik SMKN 3 Tana Toraja! Yuk, kita pelajari teknologi Fiber Optik & FTTH.
 
 2. PENJELASAN SINGKAT:
-Fusion Splicing adalah teknik menyambungkan dua ujung inti serat optik (core) menggunakan panas busur listrik bertegangan tinggi sehingga melebur menjadi satu jalur kaca tanpa hambatan. Kualitas sambungan ditentukan oleh kebersihan potongan sudut 90 derajat yang dihasilkan alat pemotong khusus (Cleaver).
+Fiber Optik adalah media transmisi berkecepatan tinggi yang menghantarkan sinyal data dalam bentuk pulsa cahaya melalui inti kaca (core) sangat halus. Pada jaringan FTTH (Fiber To The Home), sinyal cahaya mengalir dari **OLT** (pusat ISP) -> **ODC** (kabinet distribusi) -> **ODP** (kotak pembagi di tiang dekat pelanggan) -> **ONT/Modem** di rumah.
 
-Langkah demi langkah kerja teknisi:
-1. Pengupasan (Stripping): Kupas jaket pelindung luar (jacket) dan lapisan akrilat (coating) menggunakan fiber stripper hingga menyisakan inti kaca (cladding 125µm).
-2. Pembersihan (Cleaning): Bersihkan inti kaca dengan tisu bebas serat (lint-free wipe) yang dibasahi alkohol isopropil 99%.
-3. Pemotongan (Cleaving): Potong serat menggunakan Fiber Cleaver berpresisi tinggi dengan sudut potong sedekat mungkin ke 0 derajat.
-4. Pemasangan Protection Sleeve: Pasang selongsong pelindung bakar sebelum penyambungan.
-5. Penyambungan (Fusion Splicing): Letakkan kedua ujung pada V-groove mesin splicer, tutup penutup, tekan tombol SET/ARC untuk peleburan otomatis.
-6. Pemanasan (Heating): Geser protection sleeve ke titik sambungan dan panaskan pada oven splicer selama ~30 detik.
+Penyambungan permanen dua ujung core dilakukan dengan **Fusion Splicing** menggunakan panas busur listrik bertegangan tinggi setelah dikupas (*stripping*), dibersihkan alkohol isopropil 99%, dan dipotong presisi 90° dengan *Fiber Cleaver*.
 
 3. CONTOH SOAL:
-Teknisi SMKN 3 Tana Toraja sedang melakukan perbaikan kabel FO feeder yang putus. Setelah proses splicing, mesin splicer menampilkan estimasi loss sambungan sebesar 0.18 dB. Apakah hasil sambungan tersebut memenuhi standar industri untuk link FTTH? Jelaskan!
+Teknisi SMKN 3 Tana Toraja melakukan pengukuran link FTTH sepanjang 2 km dengan 2 titik sambungan fusion splice dan 2 konektor SC/APC. Hitung estimasi total redaman (loss) kabel jika rugi kabel 0.35 dB/km, rugi splice 0.1 dB/titik, dan rugi konektor 0.5 dB/buah!
 
 4. JAWABAN DAN PEMBAHASAN:
-Hasil sambungan sebesar 0.18 dB tergolong cukup baik, namun standar kualitas terbaik (telco grade) untuk fusion splicing modern idealnya berada di bawah ≤ 0.05 dB (maksimal toleransi 0.1 dB per titik sambungan).
-Rekomendasi perbaikan: Buka kembali, bersihkan V-groove, potong ulang menggunakan cleaver yang pisaunya bersih dan tajam, lalu lakukan re-splicing untuk mendapatkan redaman di bawah 0.03 dB.
+- Redaman kabel: $2 \\text{ km} \\times 0.35 \\text{ dB/km} = 0.70 \\text{ dB}$
+- Redaman sambungan splice: $2 \\times 0.1 \\text{ dB} = 0.20 \\text{ dB}$
+- Redaman konektor: $2 \\times 0.5 \\text{ dB} = 1.00 \\text{ dB}$
+- **Total Optical Loss:** $0.70 + 0.20 + 1.00 = 1.90 \\text{ dB}$ (Sangat layak, jauh di bawah batas redaman maksimal GPON ~28 dB).
 
 5. HAFALAN / RUMUS / KATA KUNCI:
-Alat Wajib Praktik FO:
-- Miller Stripper : Pengupas jaket & coating kabel
-- Fiber Cleaver  : Pemotong inti kaca presisi tinggi
-- Fusion Splicer : Mesin las busur listrik serat optik
-- OPM (Optical Power Meter) : Pengukur kuat sinyal cahaya (dBm)
-- VFL (Visual Fault Locator) : Senter laser merah pencari kebocoran sinar
+Alat & Rumus Optical Power Budget:
+- $\\text{Total Loss} = (L_{km} \\times \\alpha) + (N_{splice} \\times L_{splice}) + (N_{conn} \\times L_{conn})$
+- **Stripper & Cleaver:** Pengupas & pemotong inti kaca presisi
+- **OPM (Optical Power Meter):** Mengukur daya terima cahaya (dBm)
+- **VFL (Visual Fault Locator):** Laser merah pendeteksi titik patah/bocor
 
 6. PERTANYAAN PENUTUP:
-Berapa panjang gelombang standar (nanometer) yang biasanya digunakan untuk transmisi downstream internet GPON ke rumah pelanggan?
+Mengapa kabel fiber optik tidak boleh ditekuk melebihi batas *bending radius*-nya saat dipasang di tiang atau dinding?
 Ingat motto kebanggaan kita: "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
   }
 
   // 2. DHCP & DORA
   if (q.includes('dhcp') || q.includes('dora') || q.includes('ip pool')) {
     return `1. SAPAAN:
-Halo ${name}! Keren banget kamu sudah mulai mendalami administrasi server jaringan kelas ${grade} TJKT! Mari kita kupas tuntas cara kerja DHCP Server.
+Halo ${name}! Keren banget kamu sudah mendalami layanan jaringan kelas ${grade} TJKT! Mari kita kupas tuntas cara kerja DHCP Server.
 
 2. PENJELASAN SINGKAT:
-DHCP (Dynamic Host Configuration Protocol) adalah protokol berbasis client-server yang bertugas membagikan konfigurasi IP Address, Subnet Mask, Default Gateway, dan DNS Server secara otomatis ke seluruh perangkat komputer di jaringan LAN. Tanpa DHCP, administrator jaringan sekolah harus mendatangi setiap komputer satu per satu untuk menyetel IP statis.
+DHCP (*Dynamic Host Configuration Protocol*) adalah protokol client-server yang membagikan konfigurasi IP Address, Subnet Mask, Default Gateway, dan DNS Server secara otomatis ke perangkat klien. Tanpa DHCP, teknisi harus mengatur IP statis secara manual di setiap komputer laboratorium.
 
 3. CONTOH SOAL:
-Di laboratorium komputer SMKN 3 Tana Toraja terdapat 35 unit PC klien yang terhubung ke switch lab pada subnet 192.168.10.0/24. Jika IP 192.168.10.1 digunakan sebagai gateway router dan IP 192.168.10.2 digunakan sebagai server, tentukan range IP DHCP pool yang aman untuk 35 klien tersebut!
+Di laboratorium komputer SMKN 3 Tana Toraja terdapat 35 unit PC klien pada subnet 192.168.10.0/24. Jika IP 192.168.10.1 dipakai router gateway dan 192.168.10.2 dipakai server, tentukan konfigurasi range DHCP pool yang aman di \`/etc/dhcp/dhcpd.conf\`!
 
 4. JAWABAN DAN PEMBAHASAN:
-Langkah penentuan pool:
-- Subnet: 192.168.10.0/24 (Range total: 192.168.10.1 s.d. 192.168.10.254)
-- IP Khusus Statis: 192.168.10.1 (Router) & 192.168.10.2 (Server)
-- Range Pool Klien: 192.168.10.10 sampai 192.168.10.50 (Menyediakan 41 alokasi IP dinamis)
-Konfigurasi pada berkas /etc/dhcp/dhcpd.conf di Debian:
 \`\`\`bash
 subnet 192.168.10.0 netmask 255.255.255.0 {
   range 192.168.10.10 192.168.10.50;
@@ -91,18 +166,18 @@ subnet 192.168.10.0 netmask 255.255.255.0 {
   max-lease-time 14400;
 }
 \`\`\`
+Range 192.168.10.10–192.168.10.50 menyediakan 41 alamat IP dinamis (cukup untuk 35 PC + cadangan) tanpa menabrak IP statis router & server.
 
 5. HAFALAN / RUMUS / KATA KUNCI:
-Proses 4 Tahap D.O.R.A:
-1. Discover    : Klien mengirim broadcast mencari DHCP server
-2. Offer       : Server menawarkan sewa IP kepada klien
-3. Request     : Klien meminta resmi IP yang ditawarkan
-4. Acknowledge : Server mengesahkan dan memberikan sewa IP
-
-Port Jaringan: UDP Port 67 (Server) dan UDP Port 68 (Client).
+Proses 4 Tahap **D.O.R.A**:
+1. **Discover**    : Klien mengirim broadcast mencari DHCP server
+2. **Offer**       : Server menawarkan sewa IP ke klien
+3. **Request**     : Klien meminta resmi IP yang ditawarkan
+4. **Acknowledge** : Server mengesahkan penyewaan IP
+Port Jaringan: **UDP 67 (Server)** & **UDP 68 (Client)**.
 
 6. PERTANYAAN PENUTUP:
-Apa yang akan terjadi jika di dalam satu jaringan switch lokal yang sama aktif 2 unit DHCP server dengan konfigurasi IP yang berbeda?
+Apa yang akan terjadi jika ada dua DHCP Server aktif sekaligus dengan konfigurasi subnet berbeda di satu switch yang sama?
 Tetap semangat belajar, "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
   }
 
@@ -115,19 +190,18 @@ Tetap semangat belajar, "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!
     q.includes('inter-vlan')
   ) {
     return `1. SAPAAN:
-Halo ${name}! Topik Virtual Local Area Network (VLAN) ini sangat penting untuk sertifikasi MTCNA dan CCNA kejuruan TJKT. Yuk, kita bedah bersama!
+Halo ${name}! Topik Virtual Local Area Network (VLAN) ini sangat krusial untuk sertifikasi jaringan kejuruan TJKT. Yuk, kita bedah bersama!
 
 2. PENJELASAN SINGKAT:
-VLAN adalah teknologi pada switch manageable yang membagi satu switch fisik menjadi beberapa jaringan lokal virtual yang terisolasi. Meskipun berada di switch fisik yang sama, komputer di VLAN 10 (misal: Ruang Guru) tidak bisa saling berkomunikasi langsung dengan komputer di VLAN 20 (misal: Ruang Siswa) sebelum melalui router.
+VLAN adalah teknologi pada switch manageable yang membagi satu switch fisik menjadi beberapa jaringan lokal virtual yang terisolasi. Komputer di VLAN 10 (Ruang Guru) tidak bisa saling berkomunikasi langsung dengan komputer di VLAN 20 (Lab Siswa) tanpa melalui router, sehingga lalu lintas broadcast lebih hemat dan aman.
 
 3. CONTOH SOAL:
-Sebuah switch memiliki port Fa0/1 terhubung ke Router Mikrotik, port Fa0/2 terhubung ke PC Guru (VLAN 10), dan port Fa0/3 terhubung ke PC Siswa (VLAN 20). Tentukan mode port switch untuk masing-masing interface tersebut!
+Sebuah switch memiliki port Fa0/1 terhubung ke Router, port Fa0/2 terhubung ke PC Guru (VLAN 10), dan port Fa0/3 terhubung ke PC Siswa (VLAN 20). Tentukan mode port masing-masing interface!
 
 4. JAWABAN DAN PEMBAHASAN:
-- Port Fa0/1: Mode TRUNK (Membawa banyak tag VLAN 802.1Q menuju router)
-- Port Fa0/2: Mode ACCESS dengan VLAN ID 10
-- Port Fa0/3: Mode ACCESS dengan VLAN ID 20
-Perintah Cisco Switch:
+- **Fa0/1:** Mode **TRUNK** (membawa banyak frame bertag IEEE 802.1Q menuju router)
+- **Fa0/2:** Mode **ACCESS** VLAN 10
+- **Fa0/3:** Mode **ACCESS** VLAN 20
 \`\`\`bash
 Switch(config)# interface fa0/1
 Switch(config-if)# switchport mode trunk
@@ -137,13 +211,12 @@ Switch(config-if)# switchport access vlan 10
 \`\`\`
 
 5. HAFALAN / RUMUS / KATA KUNCI:
-- Standard Tagging: IEEE 802.1Q (Dot1Q)
-- Access Port : Menghubungkan switch ke perangkat end-device (PC/Printer)
-- Trunk Port  : Menghubungkan switch ke switch lain atau router
-- Inter-VLAN Routing: "Router-on-a-Stick" menggunakan sub-interface (contoh: eth0.10 dan eth0.20)
+- Standar Tagging: **IEEE 802.1Q (Dot1Q)**
+- **Access Port:** Ke perangkat pengguna (PC, Printer, Access Point)
+- **Trunk Port:** Antar switch atau switch ke router (*Router-on-a-Stick*)
 
 6. PERTANYAAN PENUTUP:
-Berapa nilai maksimal VLAN ID yang dapat dikonfigurasi berdasarkan standar IEEE 802.1Q?
+Berapa rentang VLAN ID standar yang dapat digunakan pada protokol IEEE 802.1Q?
 "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
   }
 
@@ -157,34 +230,30 @@ Berapa nilai maksimal VLAN ID yang dapat dikonfigurasi berdasarkan standar IEEE 
     q.includes('forward zone')
   ) {
     return `1. SAPAAN:
-Halo ${name}! Topik Domain Name System (DNS) adalah tulang punggung internet. Senang sekali kamu mempelajarinya hari ini!
+Halo ${name}! Domain Name System (DNS) adalah layanan inti internet. Senang sekali melihat semangatmu mempelajarinya hari ini!
 
 2. PENJELASAN SINGKAT:
-DNS bertindak sebagai "buku telepon" internet. DNS menerjemahkan nama domain yang mudah diingat manusia (seperti smkn3tanatoraja.sch.id) menjadi deretan alamat IP numerik (seperti 103.125.40.10) yang dipahami oleh komputer dan router.
+DNS berfungsi seperti "buku telepon" jaringan. DNS menerjemahkan nama domain yang mudah diingat manusia (seperti \`smkn3tator.sch.id\`) menjadi alamat IP numerik (seperti \`192.168.10.5\`) yang dipahami oleh komputer dan router.
 
 3. CONTOH SOAL:
-Di server Debian 12 lab SMKN 3 Tana Toraja, kamu ditugaskan membuat record domain intranet 'portal.smk3.lan' mengarah ke IP web server 192.168.10.5. Jenis DNS record apa yang harus dibuat pada file zone forward?
+Di server Debian 12 lab SMKN 3 Tana Toraja, kamu ingin domain \`portal.smk3.lan\` mengarah ke IP web server \`192.168.10.5\`. Record DNS apa yang wajib ditambahkan pada file forward zone?
 
 4. JAWABAN DAN PEMBAHASAN:
-Record yang harus dibuat adalah Type **A (Address Record)** untuk IPv4.
-Konfigurasi pada berkas /etc/bind/db.smk3.lan:
+Gunakan **Record Type A** (Address Record untuk IPv4) pada berkas zona forward Bind9:
 \`\`\`bind
 portal.smk3.lan.   IN   A   192.168.10.5
 \`\`\`
-Jika ingin membuat alias (misal 'www.smk3.lan'), gunakan record CNAME (Canonical Name).
+Lalu verifikasi sintaks konfigurasi dengan \`named-checkconf\` sebelum menjalankan \`systemctl restart bind9\`.
 
 5. HAFALAN / RUMUS / KATA KUNCI:
-Record Penting DNS:
-- A     : Hostname -> IPv4
-- AAAA  : Hostname -> IPv6
-- CNAME : Alias ke domain lain
-- MX    : Mail Exchange (Server Email)
-- NS    : Name Server resmi domain
-- PTR   : Reverse DNS (IP -> Hostname)
-Port Default DNS: UDP & TCP Port 53.
+- **A / AAAA:** Domain ke IPv4 / IPv6
+- **CNAME:** Alias ke domain lain (misal \`www\`)
+- **MX:** Alamat Mail Server
+- **PTR:** Reverse DNS (IP ke Domain)
+- Port Default DNS: **UDP & TCP 53**
 
 6. PERTANYAAN PENUTUP:
-Perintah terminal apa di Linux yang paling sering kamu pakai untuk menguji resolusi DNS lokal? (nslookup, dig, atau host?)
+Perintah terminal apa di Linux yang bisa kamu gunakan untuk menguji apakah DNS lokal sudah berhasil meresolve domain sekolah?
 "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
   }
 
@@ -196,40 +265,131 @@ Perintah terminal apa di Linux yang paling sering kamu pakai untuk menguji resol
     q.includes('mikrotik') ||
     q.includes('cisco') ||
     q.includes('routeros') ||
-    q.includes('rip')
+    q.includes('rip') ||
+    q.includes('nat') ||
+    q.includes('masquerade')
   ) {
     return `1. SAPAAN:
-Halo ${name}! Luar biasa, materi routing adalah keahlian utama seorang Network Engineer! Mari kita perdalam bersama RA'BUNG-Pintar.
+Halo ${name}! Materi Routing & Mikrotik/Cisco adalah skill inti seorang Network Engineer! Mari kita perdalam bersama RA'BUNG-PINTAR.
 
 2. PENJELASAN SINGKAT:
-Routing adalah proses meneruskan paket data dari satu jaringan ke jaringan lain yang berbeda segmen melalui router.
-- **Routing Statis**: Administrator jaringan menentukan rute secara manual tabel demi tabel. Cocok untuk jaringan skala kecil yang jarang berubah.
-- **Routing Dinamis**: Router saling bertukar informasi tabel routing secara otomatis menggunakan protokol seperti OSPF atau RIP. Cocok untuk jaringan skala menengah hingga enterprise.
+Routing adalah proses mengarahkan paket data antar jaringan berbeda segmen melalui router:
+- **Routing Statis:** Jalur ditentukan manual oleh admin, cocok untuk jaringan kecil dan stabil.
+- **Routing Dinamis (OSPF/BGP):** Router bertukar informasi rute otomatis saat topologi berubah.
+- **NAT Masquerade:** Mengubah IP privat klien LAN menjadi IP publik interface WAN agar klien bisa mengakses internet.
 
 3. CONTOH SOAL:
-Router Mikrotik RB750 di lab ingin menghubungkan jaringan lokal 192.168.20.0/24 menuju internet melalui gateway ISP di 10.10.1.1. Bagaimana perintah penambahan default route di terminal RouterOS?
+Router Mikrotik di lab perlu menghubungkan klien LAN menuju internet melalui gateway ISP \`10.10.1.1\` dengan interface WAN \`ether1\`. Tuliskan perintah CLI RouterOS untuk default route dan NAT Masquerade!
 
 4. JAWABAN DAN PEMBAHASAN:
-Perintah RouterOS Mikrotik:
 \`\`\`bash
-/ip route add dst-address=0.0.0.0/0 gateway=10.10.1.1 comment="Default Gateway Internet"
+# 1. Tambahkan Default Route menuju ISP
+/ip route add dst-address=0.0.0.0/0 gateway=10.10.1.1
+
+# 2. Aktifkan NAT Masquerade pada interface WAN
+/ip firewall nat add chain=srcnat out-interface=ether1 action=masquerade
 \`\`\`
-Penjelasan:
-- \`dst-address=0.0.0.0/0\` artinya seluruh tujuan paket di dunia yang tidak tercatat di routing table lokal akan dilempar ke gateway.
-- \`gateway=10.10.1.1\` adalah IP antarmuka router modem ISP.
 
 5. HAFALAN / RUMUS / KATA KUNCI:
-Parameter Utama Routing:
-- Administrative Distance (AD): Mikrotik Static = 1, OSPF = 110, RIP = 120 (Makin kecil makin dipercaya)
-- Metric / Cost: Nilai bobot jalur tercepat
-- 0.0.0.0/0 : Default Route ("Gateway of Last Resort")
+- **Administrative Distance (AD):** Static = 1, OSPF = 110, RIP = 120 (makin kecil makin diprioritaskan)
+- **0.0.0.0/0:** Default Route (*Gateway of Last Resort*)
+- **OSPF Area 0:** Backbone Area wajib pada jaringan OSPF
 
 6. PERTANYAAN PENUTUP:
-Menurutmu, mengapa protokol OSPF lebih disukai dibanding RIP pada jaringan besar SMKN 3 Tana Toraja?
+Mengapa protokol OSPF tidak memiliki batas 15 hop seperti protokol RIP lama?
 "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
   }
 
-  // 6. Linux Debian Server (Apache, SSH, FTP, Nginx)
+  // 6. Keamanan Jaringan, Firewall, VPN, IDS/IPS & Backup
+  if (
+    q.includes('firewall') ||
+    q.includes('vpn') ||
+    q.includes('wireguard') ||
+    q.includes('ids') ||
+    q.includes('ips') ||
+    q.includes('enkripsi') ||
+    q.includes('backup') ||
+    q.includes('keamanan') ||
+    q.includes('cyber') ||
+    q.includes('iptables')
+  ) {
+    return `1. SAPAAN:
+Halo ${name}! Keamanan Jaringan adalah garda terdepan infrastruktur IT modern. Ingat: praktik keamanan siber harus selalu dilakukan secara etis di lingkungan laboratorium sekolah yang sah ya!
+
+2. PENJELASAN SINGKAT:
+- **Firewall (iptables / Mikrotik Filter):** Menyaring paket berdasarkan chain **INPUT** (menuju router), **FORWARD** (melintasi router), dan **OUTPUT** (keluar dari router).
+- **VPN (WireGuard / OpenVPN):** Membangun terowongan (*tunnel*) terenkripsi di atas jaringan publik.
+- **IDS vs IPS:** IDS mendeteksi dan memberi peringatan adanya serangan, sedangkan IPS mendeteksi sekaligus memblokir serangan secara otomatis.
+
+3. CONTOH SOAL:
+Sebuah server Debian lab ingin mengizinkan trafik SSH (port 22) hanya dari jaringan lokal sekolah \`192.168.10.0/24\` melalui \`iptables\`. Chain apa yang digunakan?
+
+4. JAWABAN DAN PEMBAHASAN:
+Karena koneksi SSH ditujukan langsung ke server Debian tersebut, gunakan chain **INPUT**:
+\`\`\`bash
+iptables -A INPUT -p tcp -s 192.168.10.0/24 --dport 22 -j ACCEPT
+\`\`\`
+> **Catatan Keamanan:** Sebelum menerapkan kebijakan default DROP atau membersihkan aturan firewall (\`iptables -F\`) di lab remote, pastikan akses SSH Anda sudah diizinkan agar tidak terkunci dari server!
+
+5. HAFALAN / RUMUS / KATA KUNCI:
+- **Chain INPUT:** Trafik menuju router/server itu sendiri
+- **Chain FORWARD:** Trafik yang hanya lewat (klien LAN -> Internet)
+- **Aturan Backup 3-2-1:** 3 salinan data, 2 media berbeda, 1 disimpan di lokasi terpisah (*off-site*)
+
+6. PERTANYAAN PENUTUP:
+Mengapa aturan Backup 3-2-1 sangat penting bagi administrator jaringan sebelum melakukan pemeliharaan server?
+"Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
+  }
+
+  // 7. Kelas X Dasar: Kabel UTP, K3LH, Hardware, Instalasi OS, Alat Ukur, 5G/IoT
+  if (
+    q.includes('utp') ||
+    q.includes('t568') ||
+    q.includes('straight') ||
+    q.includes('cross') ||
+    q.includes('k3') ||
+    q.includes('apd') ||
+    q.includes('bios') ||
+    q.includes('beep') ||
+    q.includes('rakit') ||
+    q.includes('windows') ||
+    q.includes('mbr') ||
+    q.includes('gpt') ||
+    q.includes('5g') ||
+    q.includes('iot')
+  ) {
+    return `1. SAPAAN:
+Halo ${name}! Fondasi kejuruan Kelas X TJKT adalah kunci sukses menjadi teknisi andal di SMKN 3 Tana Toraja. Yuk, kita pelajari bersama!
+
+2. PENJELASAN SINGKAT:
+Dalam dasar-dasar TJKT (Fase E), setiap teknisi wajib menguasai keselamatan kerja (**K3LH**), perakitan hardware PC, instalasi sistem operasi (Windows & Linux dengan skema partisi MBR/GPT), serta pengkabelan jaringan standar **EIA/TIA 568A & 568B**.
+
+3. CONTOH SOAL:
+Kamu diminta membuat kabel jaringan UTP *Straight-Through* untuk menghubungkan PC siswa ke Switch Lab. Sebutkan urutan warna standar **T568B** dari pin 1 sampai pin 8!
+
+4. JAWABAN DAN PEMBAHASAN:
+Urutan warna kabel UTP standar **T568B** (kedua ujung sama untuk *Straight-Through*):
+1. Putih Oranye (TX+)
+2. Oranye (TX-)
+3. Putih Hijau (RX+)
+4. Biru
+5. Putih Biru
+6. Hijau (RX-)
+7. Putih Cokelat
+8. Cokelat
+Setelah di-crimping ke konektor RJ-45, wajib diuji menggunakan **LAN Tester** hingga lampu LED 1–8 menyala berurutan.
+
+5. HAFALAN / RUMUS / KATA KUNCI:
+- **Straight:** PC <-> Switch / Switch <-> Router (T568B — T568B)
+- **Cross-over:** PC <-> PC / Switch <-> Switch lama (T568A — T568B)
+- **K3LH Tower/FO:** Wajib memakai *Full Body Harness*, helm safety, sarung tangan, dan kacamata pelindung serpihan kaca FO.
+
+6. PERTANYAAN PENUTUP:
+Apa perbedaan antara partisi harddisk **MBR** dan **GPT** saat kamu menginstal sistem operasi Windows 11 atau Linux modern?
+"Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
+  }
+
+  // 8. Linux Debian Server, Apache, SSH, FTP, Cloud, Proxmox, Kewirausahaan
   if (
     q.includes('debian') ||
     q.includes('apache') ||
@@ -237,73 +397,75 @@ Menurutmu, mengapa protokol OSPF lebih disukai dibanding RIP pada jaringan besar
     q.includes('ssh') ||
     q.includes('ftp') ||
     q.includes('linux') ||
-    q.includes('systemctl')
+    q.includes('systemctl') ||
+    q.includes('proxmox') ||
+    q.includes('cloud') ||
+    q.includes('vps') ||
+    q.includes('iaas') ||
+    q.includes('lxc') ||
+    q.includes('bisnis') ||
+    q.includes('usaha') ||
+    q.includes('bandwidth')
   ) {
     return `1. SAPAAN:
-Halo ${name}! Administrasi Sistem Jaringan berbasis Linux Debian adalah kompetensi inti kejuruan TJKT SMKN 3 Tana Toraja. Yuk, kita bedah tuntas!
+Halo ${name}! Kompetensi server, virtualisasi cloud, dan perencanaan layanan jaringan adalah bekal utama lulusan TJKT SMKN 3 Tana Toraja. Mari kita bahas!
 
 2. PENJELASAN SINGKAT:
-Linux Debian Server banyak dipilih di industri karena stabilitas dan keamanannya yang tinggi. Dalam administrasi server, seluruh konfigurasi dilakukan melalui file teks di direktori /etc/ dan layanan dikelola melalui utilitas systemd (systemctl).
+Linux Debian Server dan hypervisor seperti Proxmox VE banyak dipakai industri karena efisien, stabil, dan hemat biaya. Di sisi lain, pemahaman arsitektur Cloud (**IaaS, PaaS, SaaS**) serta perencanaan kewirausahaan jasa jaringan (perhitungan rasio bandwidth & penawaran) membantu siswa siap kerja maupun berwirausaha.
 
 3. CONTOH SOAL:
-Setelah mengedit file VirtualHost Apache di \`/etc/apache2/sites-available/smk3.conf\`, apa urutan perintah yang benar untuk mengaktifkan situs tersebut dan menerapkan perubahannya tanpa mematikan koneksi server?
+Setelah mengedit file VirtualHost Apache di \`/etc/apache2/sites-available/smk3.conf\`, apa urutan perintah yang benar untuk mengaktifkan situs tersebut dan memverifikasi sintaks sebelum me-reload layanan?
 
 4. JAWABAN DAN PEMBAHASAN:
-Urutan perintah yang benar:
 \`\`\`bash
-# 1. Aktifkan konfigurasi site
+# 1. Aktifkan konfigurasi VirtualHost
 a2ensite smk3.conf
 
 # 2. Uji kebenaran sintaks konfigurasi
 apache2ctl configtest
 
-# 3. Reload service secara aman
+# 3. Terapkan konfigurasi tanpa memutus koneksi aktif
 systemctl reload apache2
 \`\`\`
 
 5. HAFALAN / RUMUS / KATA KUNCI:
-Perintah Layanan Systemd:
-- \`systemctl start <service>\`   : Menyalakan layanan
-- \`systemctl stop <service>\`    : Mematikan layanan
-- \`systemctl restart <service>\` : Memulai ulang layanan
-- \`systemctl status <service>\`  : Memeriksa status (running/failed)
-- \`systemctl enable <service>\`  : Mengaktifkan autostart saat server boot
+- \`systemctl status <service>\` : Memeriksa status layanan (active/failed)
+- **LXC vs KVM:** LXC berbagi kernel host (sangat ringan), KVM memiliki kernel terpisah (isolasi penuh untuk OS berbeda)
+- **IaaS / PaaS / SaaS:** Infrastruktur (VPS/Proxmox) / Platform (Vercel/Heroku) / Aplikasi siap pakai
 
 6. PERTANYAAN PENUTUP:
-Apa perbedaan mendasar antara perintah \`systemctl restart\` dan \`systemctl reload\` pada web server production?
+Kapan sebaiknya seorang administrator server memilih membuat Container LXC dibanding Virtual Machine (KVM) di Proxmox?
 "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
   }
 
   // General 6-part response for any TJKT query
   return `1. SAPAAN:
-Halo ${name}! Senang sekali bisa mendampingi belajarmu di SMKN 3 Tana Toraja pada materi ${topic}. Pertanyaanmu sangat menarik untuk dibahas!
+Halo ${name}! Senang sekali bisa mendampingi belajarmu di SMKN 3 Tana Toraja pada materi "${topic}" (Kelas ${grade} TJKT). Pertanyaanmu sangat bagus!
 
 2. PENJELASAN SINGKAT:
-Dalam kejuruan TJKT kelas ${grade}, pemahaman konsep dasar dan implementasi langsung di laboratorium adalah kunci utama. ${userMessage}.
-Setiap konfigurasi perangkat jaringan (baik Linux Debian, Mikrotik RouterOS, maupun Cisco) selalu membutuhkan ketelitian pada:
-- Penetapan layer pengalamatan IP dan subnetting yang benar.
-- Pengaturan default gateway dan tabel routing.
-- Hak akses berkas dan aturan keamanan firewall.
+Dalam kejuruan TJKT kelas ${grade}, pemahaman konsep dasar dan implementasi terstruktur di laboratorium adalah kunci utama. Terkait pertanyaanmu: *"${userMessage}"*, setiap konfigurasi sistem dan jaringan (baik Linux Debian, Mikrotik RouterOS, Cisco, maupun infrastruktur kabel/FO) selalu bertumpu pada:
+- Ketepatan pengalamatan IP Address dan subnetting.
+- Pengaturan routing, gateway, dan tabel port layanan.
+- Verifikasi berkas konfigurasi serta keamanan jaringan (K3LH & Firewall).
 
 3. CONTOH SOAL:
-Misalkan kamu diminta mendokumentasikan topologi jaringan sekolah dengan alokasi IP jaringan 192.168.0.0/26. Berapa jumlah host maksimal yang dapat digunakan pada setiap subnet?
+Misalkan kamu diminta mengalokasikan IP jaringan sekolah pada segmen \`192.168.0.0/26\`. Hitung berapa jumlah maksimal alamat IP host yang dapat dipakai oleh komputer siswa dalam satu subnet tersebut!
 
 4. JAWABAN DAN PEMBAHASAN:
-Prefix /26 memiliki subnet mask 255.255.255.192.
-Rumus jumlah host: 2^(32 - 26) - 2 = 2^6 - 2 = 64 - 2 = 62 host per subnet.
-Dua alamat tidak dapat dipakai untuk host karena:
-- Alamat pertama (Host ID 0) adalah Network Address.
-- Alamat terakhir (Host ID 63) adalah Broadcast Address.
+Prefix \`/26\` memiliki subnet mask \`255.255.255.192\` (tersisa \`32 - 26 = 6\` bit Host ID).
+Menggunakan rumus host valid:
+$$Host = 2^{6} - 2 = 64 - 2 = 62\\text{ host}$$
+Dua alamat dikecualikan karena alamat pertama (\`.0\`) adalah **Network Address** dan alamat terakhir (\`.63\`) adalah **Broadcast Address**.
 
 5. HAFALAN / RUMUS / KATA KUNCI:
 Perintah Terminal Esensial TJKT:
-- \`ip a\` : Melihat interface dan IP address aktif di Linux
-- \`ping -c 4 <ip>\` : Menguji konektivitas latensi ICMP
-- \`systemctl status <service>\` : Memeriksa kesehatan layanan server
-- \`/ip route print\` : Menampilkan tabel routing di Mikrotik
+- \`ip a\` : Melihat antarmuka & alamat IP di Linux
+- \`ping -c 4 <ip>\` : Menguji konektivitas & latensi ICMP
+- \`systemctl status <service>\` : Memeriksa status layanan server Debian
+- \`/ip route print\` : Menampilkan tabel routing di Mikrotik RouterOS
 
 6. PERTANYAAN PENUTUP:
-Sudahkah kamu mencoba mempraktikkannya langsung di tab "Praktikum Lab TJKT" RA'BUNG-Pintar?
+Sudahkah kamu mencoba mempraktikkannya langsung di tab **Praktikum Lab TJKT** RA'BUNG-PINTAR?
 Mari kita buktikan: "Belajar Cerdas, Praktik Tuntas, Masa Depan Berkualitas!"`;
 }
 
@@ -316,47 +478,47 @@ export function generateTroubleshootFallback(
   const log = (logText || '').toLowerCase();
 
   return `DIAGNOSIS TROUBLESHOOTING RA'BUNG-PINTAR:
-Target: ${osEnvironment || 'Debian Linux'} untuk ${name}
+Target Lingkungan: ${osEnvironment || 'Debian Linux'} — Siswa: ${name}
 
 1. AKAR PENYEBAB MASALAH:
 ${
   log.includes('dhcp')
-    ? 'Terdapat kesalahan penulisan (syntax error) pada baris subnet atau netmask di /etc/dhcp/dhcpd.conf. Nomor subnet tidak cocok dengan netmask yang ditentukan (misal menggunakan 192.168.1.5 bukannya network address 192.168.1.0).'
+    ? 'Terdapat kesalahan penulisan (syntax error) pada baris subnet atau netmask di /etc/dhcp/dhcpd.conf. Nomor subnet tidak cocok dengan netmask yang ditentukan (misal memakai 192.168.1.5 alih-alih network address 192.168.1.0), atau interface belum didaftarkan pada /etc/default/isc-dhcp-server.'
     : log.includes('port 80') || log.includes('address already in use')
-    ? 'Port 80 (HTTP) telah digunakan oleh proses lain (kemungkinan Nginx, Lighttpd, atau instance Apache lama yang menggantung).'
-    : 'Konektivitas antarmuka jaringan terputus (down), konfigurasi gateway tidak tercapai, atau aturan firewall memblokir paket.'
+    ? 'Port 80 (HTTP) sudah digunakan oleh proses lain (seperti Nginx, Lighttpd, atau proses Apache lama yang belum berhenti sempurna).'
+    : log.includes('bind') || log.includes('named') || log.includes('dns')
+    ? 'Kemungkinan terdapat kesalahan tanda titik (trailing dot) atau titik koma (;) pada file zone /etc/bind/db.* sehingga daemon named gagal memuat zona.'
+    : 'Konektivitas antarmuka jaringan terputus (DOWN), konfigurasi gateway tidak dapat dijangkau, atau aturan firewall memblokir paket yang masuk.'
 }
 
 2. LANGKAH PEMERIKSAAN AWAL:
-- Cek status log mendalam: \`journalctl -xeu <service-name>\`
-- Verifikasi syntax berkas konfigurasi sebelum menjalankan service.
-- Periksa port yang aktif: \`netstat -tlpn\` atau \`ss -tulpn\`.
+- Periksa log detail sistem: \`journalctl -xeu <nama-service>\`
+- Uji sintaks file konfigurasi sebelum menjalankan ulang layanan.
+- Periksa port yang sedang aktif mendengarkan: \`ss -tulpn\`
 
-3. SOLUSI PERBAIKAN:
+3. SOLUSI PERBAIKAN (INSTRUKSI LAB):
 ${
   log.includes('dhcp')
-    ? `Jalankan perintah berikut:
-\`\`\`bash
-# Edit file konfigurasi DHCP
-nano /etc/dhcp/dhcpd.conf
+    ? `\`\`\`bash
+# 1. Uji sintaks konfigurasi DHCP terlebih dahulu
+dhcpd -t -cf /etc/dhcp/dhcpd.conf
 
-# Pastikan deklarasi subnet menggunakan network address:
-subnet 192.168.1.0 netmask 255.255.255.0 {
-    range 192.168.1.10 192.168.1.50;
-    option routers 192.168.1.1;
-}
+# 2. Pastikan deklarasi subnet menggunakan network address yang valid:
+# subnet 192.168.1.0 netmask 255.255.255.0 { ... }
 
-# Simpan lalu restart service
+# 3. Restart service setelah diperbaiki
 systemctl restart isc-dhcp-server
 \`\`\``
     : `\`\`\`bash
-# Periksa port yang bertabrakan
-lsof -i :80
-# Matikan proses yang menghambat lalu start kembali
+# 1. Cek proses yang menggunakan port 80
+ss -tulpn | grep :80
+
+# 2. Uji konfigurasi web server sebelum restart
+apache2ctl configtest
 systemctl restart apache2
 \`\`\``
 }
 
 4. CARA VERIFIKASI PENGUJIAN:
-Jalankan \`systemctl status <service>\` dan pastikan berwarna hijau dengan status \`active (running)\`. Lakukan tes koneksi klien via \`ping\` atau akses browser lokal.`;
+Jalankan \`systemctl status <nama-service>\` di terminal praktikum Anda dan pastikan muncul status \`active (running)\` berwarna hijau, lalu uji dari sisi klien.`;
 }

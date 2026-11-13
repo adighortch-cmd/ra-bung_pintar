@@ -48,3 +48,23 @@
 .glow-neon-green {
   animation: pulse-glow 3s infinite ease-in-out;
 }
+
+/* KaTeX dark-theme styling for mathematical and subnetting formulas */
+.rpm-markdown .katex {
+  font-size: 1.02em;
+  color: #67e8f9;
+}
+
+.rpm-markdown .katex-display {
+  margin: 0.65rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(8, 51, 68, 0.32);
+  border: 1px solid rgba(6, 182, 212, 0.28);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.rpm-markdown .katex-display > .katex {
+  color: #a5f3fc;
+}
